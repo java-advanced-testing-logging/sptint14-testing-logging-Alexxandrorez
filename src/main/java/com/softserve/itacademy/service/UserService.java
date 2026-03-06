@@ -23,12 +23,16 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserDtoConverter userDtoConverter;
 
-    @Transactional
-    public User register(CreateUserDto createUserDto) {
-        createUserDto.setRole(UserRole.USER);
-        User user = userDtoConverter.convertToUser(createUserDto);
+    public User register(CreateUserDto dto) {
+        if (userRepository.findByEmail(dto.getEmail()).isPresent()) {
+            throw new IllegalArgumentException("Email already exists");
+        }
+
+        User user = userDtoConverter.convertToUser(dto);
         user.setPassword("{noop}" + user.getPassword());
-        return create(user);
+        user.setRole(UserRole.USER);
+
+        return userRepository.save(user);
     }
 
     @Transactional

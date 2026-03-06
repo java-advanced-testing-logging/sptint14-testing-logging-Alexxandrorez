@@ -31,7 +31,7 @@ public class TaskController {
 
     @GetMapping("/create/todos/{todo_id}")
     public String create(@PathVariable("todo_id") Long todoId, Model model) {
-        log.debug("GET request for task creation form in ToDo ID: {}", todoId);
+        log.info("GET /tasks/create/todos/{}", todoId);
         TaskDto taskDto = TaskDto.builder()
                 .todoId(todoId)
                 .build();
@@ -45,12 +45,12 @@ public class TaskController {
 
     @PostMapping("/create/todos/{todo_id}")
     public String create(@PathVariable("todo_id") Long todoId,
-                        @Valid @ModelAttribute("task") TaskDto taskDto,
-                        BindingResult bindingResult,
-                        Model model) {
-        log.info("POST request to create task '{}' in ToDo ID: {}", taskDto.getName(), todoId);
+                         @Valid @ModelAttribute("task") TaskDto taskDto,
+                         BindingResult bindingResult,
+                         Model model) {
+        log.info("POST /tasks/create/todos/{} : taskName={}", todoId, taskDto.getName());
         if (bindingResult.hasErrors()) {
-            log.warn("Validation failed for task creation: {}", bindingResult.getAllErrors());
+            log.warn("Validation errors in task creation: {}", bindingResult.getAllErrors());
             model.addAttribute("todo", todoService.readById(todoId));
             model.addAttribute("priorities", TaskPriority.values());
             return "create-task";
@@ -59,9 +59,9 @@ public class TaskController {
         try {
             taskDto.setTodoId(todoId);
             taskService.create(taskDto);
-            log.debug("Task '{}' created successfully", taskDto.getName());
+            log.info("Task created successfully in ToDo ID: {}", todoId);
         } catch (IllegalArgumentException e) {
-            log.warn("Error creating task: {}", e.getMessage());
+            log.error("Error creating task: {}", e.getMessage());
             bindingResult.rejectValue("name", "error.task", e.getMessage());
             model.addAttribute("todo", todoService.readById(todoId));
             model.addAttribute("priorities", TaskPriority.values());
@@ -75,7 +75,7 @@ public class TaskController {
     public String taskUpdateForm(@PathVariable("task_id") Long taskId,
                                  @PathVariable("todo_id") Long todoId,
                                  Model model) {
-        log.debug("GET request for task update form, ID: {}, ToDo ID: {}", taskId, todoId);
+        log.info("GET /tasks/{}/update/todos/{}", taskId, todoId);
         Task task = taskService.readById(taskId);
         TaskDto taskDto = taskTransformer.convertToDto(task);
 
@@ -89,13 +89,13 @@ public class TaskController {
 
     @PostMapping("/{task_id}/update/todos/{todo_id}")
     public String update(@PathVariable("task_id") Long taskId,
-                        @PathVariable("todo_id") Long todoId,
-                        @Valid @ModelAttribute("task") TaskDto taskDto,
-                        BindingResult bindingResult,
-                        Model model) {
-        log.info("POST request to update task ID: {}, ToDo ID: {}", taskId, todoId);
+                         @PathVariable("todo_id") Long todoId,
+                         @Valid @ModelAttribute("task") TaskDto taskDto,
+                         BindingResult bindingResult,
+                         Model model) {
+        log.info("POST /tasks/{}/update/todos/{}", taskId, todoId);
         if (bindingResult.hasErrors()) {
-            log.warn("Validation failed for task update ID {}: {}", taskId, bindingResult.getAllErrors());
+            log.warn("Validation errors in task update ID {}: {}", taskId, bindingResult.getAllErrors());
             model.addAttribute("todo", todoService.readById(todoId));
             model.addAttribute("priorities", TaskPriority.values());
             model.addAttribute("states", stateService.getAll());
@@ -112,9 +112,9 @@ public class TaskController {
             );
 
             taskService.update(updatedTask);
-            log.debug("Task ID {} updated successfully", taskId);
+            log.info("Task updated successfully: ID={}", taskId);
         } catch (IllegalArgumentException e) {
-            log.warn("Error updating task ID {}: {}", taskId, e.getMessage());
+            log.error("Error updating task ID {}: {}", taskId, e.getMessage());
             bindingResult.rejectValue("name", "error.task", e.getMessage());
             model.addAttribute("todo", todoService.readById(todoId));
             model.addAttribute("priorities", TaskPriority.values());
@@ -127,17 +127,17 @@ public class TaskController {
 
     @GetMapping("/{task_id}/delete/todos/{todo_id}")
     public String delete(@PathVariable("task_id") Long taskId,
-                        @PathVariable("todo_id") Long todoId) {
-        log.info("GET request to delete task ID: {}, ToDo ID: {}", taskId, todoId);
+                         @PathVariable("todo_id") Long todoId) {
+        log.info("GET /tasks/{}/delete/todos/{}", taskId, todoId);
         taskService.delete(taskId);
-        log.debug("Task ID {} deleted successfully", taskId);
+        log.info("Task deleted successfully: ID={}", taskId);
         return "redirect:/todos/" + todoId + "/tasks";
     }
 
     @ExceptionHandler(EntityNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ModelAndView handleEntityNotFoundException(EntityNotFoundException ex) {
-        log.error("Entity not found: {}", ex.getMessage());
+        log.error("EntityNotFoundException in TaskController: {}", ex.getMessage());
         ModelAndView modelAndView = new ModelAndView("error/404");
         modelAndView.addObject("message", ex.getMessage());
         return modelAndView;

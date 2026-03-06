@@ -9,6 +9,7 @@ import com.softserve.itacademy.model.UserRole;
 import com.softserve.itacademy.service.UserService;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -18,6 +19,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.servlet.ModelAndView;
 
+@Slf4j
 @Controller
 @RequestMapping("/users")
 @RequiredArgsConstructor
@@ -28,20 +30,25 @@ public class UserController {
 
     @GetMapping("/create")
     public String create(Model model) {
+        log.info("GET /users/create");
         model.addAttribute("user", new CreateUserDto());
         return "create-user";
     }
 
     @PostMapping("/create")
     public String create(@Validated @ModelAttribute("user") CreateUserDto userDto,
-                        BindingResult result) {
+                         BindingResult result) {
+        log.info("POST /users/create : email={}", userDto.getEmail());
         if (result.hasErrors()) {
+            log.warn("Validation errors: {}", result.getAllErrors());
             return "create-user";
         }
         try {
             User user = userService.register(userDto);
+            log.info("User registered: ID={}", user.getId());
             return "redirect:/todos/all/users/" + user.getId();
         } catch (IllegalArgumentException e) {
+            log.error("Registration error: {}", e.getMessage());
             result.rejectValue("email", "error.user", e.getMessage());
             return "create-user";
         }
@@ -49,6 +56,7 @@ public class UserController {
 
     @GetMapping("/{id}/read")
     public String read(@PathVariable("id") Long id, Model model) {
+        log.info("GET /users/{}/read", id);
         User user = userService.readById(id);
         model.addAttribute("user", user);
         return "user-info";
@@ -56,6 +64,7 @@ public class UserController {
 
     @GetMapping("/{id}/update")
     public String update(@PathVariable("id") Long id, Model model) {
+        log.info("GET /users/{}/update", id);
         User user = userService.readById(id);
         UpdateUserDto userDto = new UpdateUserDto();
         userDto.setId(user.getId());
@@ -63,7 +72,7 @@ public class UserController {
         userDto.setLastName(user.getLastName());
         userDto.setEmail(user.getEmail());
         userDto.setRole(user.getRole());
-        
+
         model.addAttribute("user", userDto);
         model.addAttribute("roles", UserRole.values());
         return "update-user";
@@ -71,26 +80,32 @@ public class UserController {
 
     @PostMapping("/{id}/update")
     public String update(@PathVariable("id") Long id,
-                        @Validated @ModelAttribute("user") UpdateUserDto userDto,
-                        BindingResult result,
-                        Model model) {
+                         @Validated @ModelAttribute("user") UpdateUserDto userDto,
+                         BindingResult result,
+                         Model model) {
+        log.info("POST /users/{}/update", id);
         if (result.hasErrors()) {
+            log.warn("Validation errors: {}", result.getAllErrors());
             model.addAttribute("roles", UserRole.values());
             return "update-user";
         }
         userDto.setId(id);
         userService.update(userDto);
+        log.info("User updated: ID={}", id);
         return "redirect:/users/all";
     }
 
     @GetMapping("/{id}/delete")
     public String delete(@PathVariable("id") Long id) {
+        log.info("GET /users/{}/delete", id);
         userService.delete(id);
+        log.info("User deleted: ID={}", id);
         return "redirect:/users/all";
     }
 
     @GetMapping("/all")
     public String getAll(Model model) {
+        log.info("GET /users/all");
         model.addAttribute("users", userService.getAll());
         return "users-list";
     }
@@ -98,6 +113,7 @@ public class UserController {
     @ExceptionHandler(EntityNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ModelAndView handleEntityNotFoundException(EntityNotFoundException ex) {
+        log.error("EntityNotFoundException: {}", ex.getMessage());
         ModelAndView modelAndView = new ModelAndView("error/404");
         modelAndView.addObject("message", ex.getMessage());
         return modelAndView;

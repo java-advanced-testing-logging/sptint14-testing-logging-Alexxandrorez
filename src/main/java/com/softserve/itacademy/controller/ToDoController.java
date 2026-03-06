@@ -10,6 +10,7 @@ import com.softserve.itacademy.model.User;
 import com.softserve.itacademy.service.TaskService;
 import com.softserve.itacademy.service.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -23,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Controller
 @RequestMapping("/todos")
 @RequiredArgsConstructor
@@ -35,6 +37,7 @@ public class ToDoController {
 
     @GetMapping("/create/users/{owner_id}")
     public String createToDoForm(@PathVariable("owner_id") Long ownerId, Model model) {
+        log.info("GET /todos/create/users/{}", ownerId);
         CreateToDoDto todoDto = new CreateToDoDto();
         todoDto.setOwnerId(ownerId);
         model.addAttribute("todo", todoDto);
@@ -44,10 +47,12 @@ public class ToDoController {
 
     @PostMapping("/create/users/{owner_id}")
     public String createToDo(@PathVariable("owner_id") Long ownerId,
-                            @Validated @ModelAttribute("todo") CreateToDoDto todoDto,
-                            BindingResult result,
-                            Model model) {
+                             @Validated @ModelAttribute("todo") CreateToDoDto todoDto,
+                             BindingResult result,
+                             Model model) {
+        log.info("POST /todos/create/users/{} : title={}", ownerId, todoDto.getTitle());
         if (result.hasErrors()) {
+            log.warn("Validation errors in ToDo creation: {}", result.getAllErrors());
             model.addAttribute("ownerId", ownerId);
             return "create-todo";
         }
@@ -55,7 +60,9 @@ public class ToDoController {
         ToDo todo = todoDtoConverter.toEntity(todoDto, owner);
         try {
             todoService.create(todo);
+            log.info("ToDo created successfully for owner ID: {}", ownerId);
         } catch (IllegalArgumentException e) {
+            log.error("Error creating ToDo: {}", e.getMessage());
             result.rejectValue("title", "error.todo", e.getMessage());
             model.addAttribute("ownerId", ownerId);
             return "create-todo";
@@ -67,6 +74,7 @@ public class ToDoController {
     public String updateToDoForm(@PathVariable("todo_id") Long todoId,
                                  @PathVariable("owner_id") Long ownerId,
                                  Model model) {
+        log.info("GET /todos/{}/update/users/{}", todoId, ownerId);
         ToDo todo = todoService.readById(todoId);
         UpdateToDoDto todoDto = UpdateToDoDto.builder()
                 .id(todo.getId())
@@ -79,11 +87,13 @@ public class ToDoController {
 
     @PostMapping("/{todo_id}/update/users/{owner_id}")
     public String updateToDo(@PathVariable("todo_id") Long todoId,
-                            @PathVariable("owner_id") Long ownerId,
-                            @Validated @ModelAttribute("todo") UpdateToDoDto todoDto,
-                            BindingResult result,
-                            Model model) {
+                             @PathVariable("owner_id") Long ownerId,
+                             @Validated @ModelAttribute("todo") UpdateToDoDto todoDto,
+                             BindingResult result,
+                             Model model) {
+        log.info("POST /todos/{}/update/users/{}", todoId, ownerId);
         if (result.hasErrors()) {
+            log.warn("Validation errors in ToDo update ID {}: {}", todoId, result.getAllErrors());
             return "update-todo";
         }
         ToDo todo = todoService.readById(todoId);
@@ -91,7 +101,9 @@ public class ToDoController {
         todoDtoConverter.fillFields(todo, todoDto, owner);
         try {
             todoService.update(todo);
+            log.info("ToDo updated successfully: ID={}", todoId);
         } catch (IllegalArgumentException e) {
+            log.error("Error updating ToDo ID {}: {}", todoId, e.getMessage());
             result.rejectValue("title", "error.todo", e.getMessage());
             return "update-todo";
         }
@@ -100,13 +112,16 @@ public class ToDoController {
 
     @GetMapping("/{todo_id}/delete/users/{owner_id}")
     public String delete(@PathVariable("todo_id") Long todoId,
-                        @PathVariable("owner_id") Long ownerId) {
+                         @PathVariable("owner_id") Long ownerId) {
+        log.info("GET /todos/{}/delete/users/{}", todoId, ownerId);
         todoService.delete(todoId);
+        log.info("ToDo deleted successfully: ID={}", todoId);
         return "redirect:/todos/all/users/" + ownerId;
     }
 
     @GetMapping("/all/users/{user_id}")
     public String getAll(@PathVariable("user_id") Long userId, Model model) {
+        log.info("GET /todos/all/users/{}", userId);
         List<ToDo> todos = todoService.getByUserId(userId);
         model.addAttribute("todos", todos);
         model.addAttribute("user", userService.readById(userId));
@@ -115,6 +130,7 @@ public class ToDoController {
 
     @GetMapping("/{id}/tasks")
     public String getTasks(@PathVariable("id") Long todoId, Model model) {
+        log.info("GET /todos/{}/tasks", todoId);
         ToDo todo = todoService.readById(todoId);
         model.addAttribute("todo", todo);
         model.addAttribute("tasks", todo.getTasks());
@@ -126,21 +142,26 @@ public class ToDoController {
 
     @GetMapping("/{id}/add")
     public String addCollaborator(@PathVariable("id") Long todoId,
-                                 @RequestParam("user_id") Long userId) {
+                                  @RequestParam("user_id") Long userId) {
+        log.info("GET /todos/{}/add?user_id={}", todoId, userId);
         todoService.addCollaborator(todoId, userId);
+        log.info("Collaborator ID {} added to ToDo ID {}", userId, todoId);
         return "redirect:/todos/" + todoId + "/tasks";
     }
 
     @GetMapping("/{id}/remove")
     public String removeCollaborator(@PathVariable("id") Long todoId,
-                                    @RequestParam("user_id") Long userId) {
+                                     @RequestParam("user_id") Long userId) {
+        log.info("GET /todos/{}/remove?user_id={}", todoId, userId);
         todoService.removeCollaborator(todoId, userId);
+        log.info("Collaborator ID {} removed from ToDo ID {}", userId, todoId);
         return "redirect:/todos/" + todoId + "/tasks";
     }
 
     @ExceptionHandler(EntityNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ModelAndView handleEntityNotFoundException(EntityNotFoundException ex) {
+        log.error("EntityNotFoundException in ToDoController: {}", ex.getMessage());
         ModelAndView modelAndView = new ModelAndView("error/404");
         modelAndView.addObject("message", ex.getMessage());
         return modelAndView;
